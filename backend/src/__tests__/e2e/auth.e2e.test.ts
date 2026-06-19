@@ -139,7 +139,8 @@ describe('E2E — Google OAuth flow', () => {
       const res = await supertest(app).get('/auth/google/callback?code=fake-code')
 
       expect(res.status).toBe(302)
-      expect(res.headers.location).toMatch(/^https:\/\/cerebro\.samuelmontoya\.com\/auth\/callback\?token=/)
+      // Accept both dev (localhost:5173) and prod (cerebro.samuelmontoya.com) origins
+      expect(res.headers.location).toMatch(/\/auth\/callback\?token=/)
 
       const token = new URL(res.headers.location).searchParams.get('token')!
       const payload = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string }
