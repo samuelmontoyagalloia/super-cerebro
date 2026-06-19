@@ -191,6 +191,37 @@ describe('LoginPage — return / biometric state', () => {
   })
 })
 
+// ── sc_returning biometric trigger ───────────────────────────────────────────
+
+describe('LoginPage — sc_returning biometric trigger', () => {
+  afterEach(() => localStorage.clear())
+
+  it('shows biometric state when only sc_returning is set (no has_passkey)', () => {
+    localStorage.setItem('sc_returning', 'true')
+    renderLogin()
+    expect(screen.getByText(/bienvenido de nuevo/i)).toBeInTheDocument()
+  })
+
+  it('shows biometric state when only has_passkey is set (no sc_returning)', () => {
+    localStorage.setItem('has_passkey', 'true')
+    renderLogin()
+    expect(screen.getByText(/bienvenido de nuevo/i)).toBeInTheDocument()
+  })
+
+  it('shows biometric state when both sc_returning and has_passkey are set', () => {
+    localStorage.setItem('sc_returning', 'true')
+    localStorage.setItem('has_passkey', 'true')
+    renderLogin()
+    expect(screen.getByText(/bienvenido de nuevo/i)).toBeInTheDocument()
+  })
+
+  it('shows Google button when neither sc_returning nor has_passkey is set', () => {
+    renderLogin()
+    expect(screen.getByRole('button', { name: /continuar con google/i })).toBeInTheDocument()
+    expect(screen.queryByText(/bienvenido de nuevo/i)).not.toBeInTheDocument()
+  })
+})
+
 // ── Biometric authentication flow ─────────────────────────────────────────────
 
 describe('LoginPage — biometric authentication flow', () => {

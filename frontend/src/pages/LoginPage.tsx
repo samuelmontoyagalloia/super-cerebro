@@ -13,7 +13,10 @@ export default function LoginPage() {
   const [phase, setPhase] = useState<Phase>('idle')
 
   useEffect(() => {
-    setReturning(localStorage.getItem('has_passkey') === 'true')
+    setReturning(
+      localStorage.getItem('sc_returning') === 'true' ||
+      localStorage.getItem('has_passkey') === 'true'
+    )
     setIsMobile(/iPhone|iPad/.test(navigator.userAgent))
   }, [])
 

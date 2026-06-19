@@ -139,6 +139,14 @@ describe('E2E — register/start', () => {
 
     expect(res.status).toBe(404)
   })
+
+  it('returns 401 when Authorization header is absent', async () => {
+    if (!dbAvailable) return
+
+    const res = await supertest(app).post('/auth/passkey/register/start')
+    expect(res.status).toBe(401)
+    expect(res.body).toMatchObject({ error: 'No token provided' })
+  })
 })
 
 describe('E2E — register/finish', () => {
@@ -198,6 +206,14 @@ describe('E2E — register/finish', () => {
 
     expect(res.status).toBe(400)
     expect(res.body.error).toMatch(/challenge not found/i)
+  })
+
+  it('returns 401 when Authorization header is absent', async () => {
+    if (!dbAvailable) return
+
+    const res = await supertest(app).post('/auth/passkey/register/finish')
+    expect(res.status).toBe(401)
+    expect(res.body).toMatchObject({ error: 'No token provided' })
   })
 })
 

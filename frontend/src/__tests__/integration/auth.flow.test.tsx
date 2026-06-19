@@ -46,13 +46,13 @@ describe('Auth flow — callback stores token and unlocks dashboard', () => {
 
   it('callback saves auth_token and redirects to dashboard', async () => {
     renderApp(`/auth/callback?token=${FAKE_TOKEN}`)
-    await waitFor(() => expect(screen.getByText('Dashboard')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('heading', { name: /bienvenido/i })).toBeInTheDocument())
     expect(localStorage.getItem('auth_token')).toBe(FAKE_TOKEN)
   })
 
   it('callback sets sc_returning flag', async () => {
     renderApp(`/auth/callback?token=${FAKE_TOKEN}`)
-    await waitFor(() => screen.getByText('Dashboard'))
+    await waitFor(() => screen.getByRole('heading', { name: /bienvenido/i }))
     expect(localStorage.getItem('sc_returning')).toBe('true')
   })
 })
@@ -70,32 +70,45 @@ describe('Auth flow — ProtectedRoute guards the dashboard', () => {
   it('shows dashboard when token is present in localStorage', () => {
     localStorage.setItem('auth_token', FAKE_TOKEN)
     renderApp('/dashboard')
-    expect(screen.getByText('Dashboard')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /bienvenido/i })).toBeInTheDocument()
   })
 })
 
-// ── Logout → biometric state ──────────────────────────────────────────────────
+// ── Logout → clears auth state ────────────────────────────────────────────────
 
-describe('Auth flow — logout retains returning-user state', () => {
+describe('Auth flow — logout clears auth state', () => {
   beforeEach(() => localStorage.clear())
 
-  it('after logout auth_token is gone but sc_returning persists', async () => {
+  it('after logout auth_token is removed', async () => {
     localStorage.setItem('auth_token', FAKE_TOKEN)
     localStorage.setItem('sc_returning', 'true')
 
     renderApp('/dashboard')
-    expect(screen.getByText('Dashboard')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /bienvenido/i })).toBeInTheDocument()
 
-    // Click logout
     fireEvent.click(screen.getByRole('button', { name: /cerrar sesión/i }))
 
     await waitFor(() => {
       expect(localStorage.getItem('auth_token')).toBeNull()
     })
-    expect(localStorage.getItem('sc_returning')).toBe('true')
   })
 
-  it('after logout, /login shows the biometric state (not Google button)', async () => {
+  it('after logout has_passkey and user_email are preserved for biometric re-login', async () => {
+    localStorage.setItem('auth_token', FAKE_TOKEN)
+    localStorage.setItem('has_passkey', 'true')
+    localStorage.setItem('user_email', 'test@example.com')
+
+    renderApp('/dashboard')
+    fireEvent.click(screen.getByRole('button', { name: /cerrar sesión/i }))
+
+    await waitFor(() => {
+      expect(localStorage.getItem('auth_token')).toBeNull()
+    })
+    expect(localStorage.getItem('has_passkey')).toBe('true')
+    expect(localStorage.getItem('user_email')).toBe('test@example.com')
+  })
+
+  it('after logout, /login shows the biometric screen (sc_returning preserved)', async () => {
     localStorage.setItem('auth_token', FAKE_TOKEN)
     localStorage.setItem('sc_returning', 'true')
     localStorage.setItem('has_passkey', 'true')
@@ -104,10 +117,36 @@ describe('Auth flow — logout retains returning-user state', () => {
     fireEvent.click(screen.getByRole('button', { name: /cerrar sesión/i }))
 
     await waitFor(() => {
-      // Redirects to /login with sc_returning still set → biometric state
       expect(screen.getByText(/bienvenido de nuevo/i)).toBeInTheDocument()
     })
     expect(screen.queryByRole('button', { name: /continuar con google/i })).not.toBeInTheDocument()
+  })
+
+  it('after logout, /login shows biometric even if only sc_returning is set', async () => {
+    localStorage.setItem('auth_token', FAKE_TOKEN)
+    localStorage.setItem('sc_returning', 'true')
+    // has_passkey absent — simulates old-logout state in user browser
+
+    renderApp('/dashboard')
+    fireEvent.click(screen.getByRole('button', { name: /cerrar sesión/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/bienvenido de nuevo/i)).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /continuar con google/i })).not.toBeInTheDocument()
+  })
+
+  it('after logout, navigating to /dashboard redirects to /login', async () => {
+    localStorage.setItem('auth_token', FAKE_TOKEN)
+    // no sc_returning, no has_passkey → first-access state
+
+    renderApp('/dashboard')
+    fireEvent.click(screen.getByRole('button', { name: /cerrar sesión/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /continuar con google/i })).toBeInTheDocument()
+    })
+    expect(localStorage.getItem('auth_token')).toBeNull()
   })
 })
 
@@ -176,7 +215,7 @@ describe('Auth flow — callback edge cases', () => {
       value: { href: '', search: `?token=${FAKE_TOKEN}`, assign: vi.fn(), replace: vi.fn() },
     })
     renderApp(`/auth/callback?token=${FAKE_TOKEN}`)
-    await waitFor(() => screen.getByText('Dashboard'))
+    await waitFor(() => screen.getByRole('heading', { name: /bienvenido/i }))
     const authCalls = spy.mock.calls.filter(([k]) => k === 'auth_token')
     expect(authCalls).toHaveLength(1)
   })
