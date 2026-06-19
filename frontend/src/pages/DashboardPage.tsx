@@ -13,7 +13,7 @@ export default function DashboardPage() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100dvh',
       background: BG,
       display: 'flex',
       flexDirection: 'column',
@@ -164,7 +164,6 @@ export default function DashboardPage() {
           borderRadius: 12,
           padding: '28px 32px',
           textAlign: 'center',
-          backdropFilter: 'blur(8px)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 18 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: BLUE, display: 'inline-block', flexShrink: 0 }} />
