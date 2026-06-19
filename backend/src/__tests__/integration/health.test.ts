@@ -27,9 +27,9 @@ describe('GET /api/health', () => {
     expect(res.headers['content-type']).toMatch(/application\/json/)
   })
 
-  it('returns 404 for unknown paths', async () => {
+  it('returns 401 for unauthenticated requests to unknown paths', async () => {
     const res = await supertest(app).get('/api/unknown')
 
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(401)
   })
 })

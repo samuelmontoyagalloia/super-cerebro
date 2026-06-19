@@ -55,13 +55,13 @@ beforeEach(() => {
   vi.mocked(prisma.passkey.update).mockResolvedValue({} as any)
 })
 
-// ── requireAuth — missing / malformed header ──────────────────────────────────
+// ── authenticate — missing / malformed header ─────────────────────────────────
 
-describe('requireAuth middleware — protected routes reject bad credentials', () => {
+describe('authenticate middleware — protected routes reject bad credentials', () => {
   it('returns 401 when Authorization header is absent', async () => {
     const res = await supertest(app).post('/auth/passkey/register/start')
     expect(res.status).toBe(401)
-    expect(res.body).toMatchObject({ error: 'Unauthorized' })
+    expect(res.body).toMatchObject({ error: 'No token provided' })
   })
 
   it('returns 401 when header does not start with "Bearer "', async () => {
@@ -69,7 +69,7 @@ describe('requireAuth middleware — protected routes reject bad credentials', (
       .post('/auth/passkey/register/start')
       .set('Authorization', 'Basic dXNlcjpwYXNz')
     expect(res.status).toBe(401)
-    expect(res.body).toMatchObject({ error: 'Unauthorized' })
+    expect(res.body).toMatchObject({ error: 'No token provided' })
   })
 
   it('returns 401 for a plain string that is not a JWT', async () => {
