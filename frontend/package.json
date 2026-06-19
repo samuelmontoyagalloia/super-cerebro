@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:tunnel": "VITE_TUNNEL_URL=https://83ckj4bl-3000.use2.devtunnels.ms vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

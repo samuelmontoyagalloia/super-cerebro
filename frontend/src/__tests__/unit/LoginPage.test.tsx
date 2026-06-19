@@ -2,6 +2,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import LoginPage from '../../pages/LoginPage'
+import { startAuthentication } from '@simplewebauthn/browser'
+
+vi.mock('@simplewebauthn/browser', () => ({
+  startAuthentication: vi.fn(),
+}))
+
+global.fetch = vi.fn() as unknown as typeof fetch
 
 function renderLogin() {
   return render(
@@ -75,30 +82,32 @@ describe('LoginPage — first access', () => {
 // ── Google button redirect ────────────────────────────────────────────────────
 
 describe('LoginPage — Google redirect', () => {
-  it('clicking "Continuar con Google" sets window.location.href to backend /auth/google', () => {
+  it('clicking "Continuar con Google" redirects to the backend /auth/google endpoint', () => {
     renderLogin()
-    const btn = screen.getByRole('button', { name: /continuar con google/i })
-    fireEvent.click(btn)
-    expect(window.location.href).toBe('http://localhost:3000/auth/google')
+    fireEvent.click(screen.getByRole('button', { name: /continuar con google/i }))
+    expect(window.location.href).toMatch(/\/auth\/google$/)
   })
 
-  it('uses the VITE_BACKEND_URL fallback (http://localhost:3000) in tests', () => {
+  it('backend URL comes from VITE_TUNNEL_URL or VITE_BACKEND_URL', () => {
     renderLogin()
     fireEvent.click(screen.getByRole('button', { name: /continuar con google/i }))
     expect(window.location.href).toContain('/auth/google')
   })
 })
 
-// ── Return state (sc_returning = true) ────────────────────────────────────────
+// ── Return state (has_passkey = true) ─────────────────────────────────────────
 
 describe('LoginPage — return / biometric state', () => {
+  const ORIGINAL_UA = navigator.userAgent
+
   beforeEach(() => {
-    localStorage.setItem('sc_returning', 'true')
+    localStorage.setItem('has_passkey', 'true')
     vi.useRealTimers()
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    Object.defineProperty(navigator, 'userAgent', { configurable: true, value: ORIGINAL_UA })
   })
 
   it('shows "Bienvenido de nuevo"', () => {
@@ -132,35 +141,32 @@ describe('LoginPage — return / biometric state', () => {
     expect(screen.getByText(/toca para entrar con tu huella/i)).toBeInTheDocument()
   })
 
-  it('shows Face ID label on mobile (matchMedia.matches = true)', async () => {
-    vi.mocked(window.matchMedia).mockImplementationOnce((query: string) => ({
-      matches: true,
-      media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }))
+  it('shows Face ID label on mobile (iPhone userAgent)', async () => {
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+    })
     renderLogin()
     await waitFor(() => {
       expect(screen.getByText(/mírate para entrar con face id/i)).toBeInTheDocument()
     })
   })
 
-  it('biometric button click does NOT navigate (WebAuthn pending)', async () => {
-    vi.useFakeTimers()
+  it('biometric button click does not navigate when user_email is absent', async () => {
+    // user_email not set → handleBiometric throws before any fetch → resets to idle
     renderLogin()
     const btn = screen.getByRole('button', { name: /toca para entrar con tu huella/i })
     fireEvent.click(btn)
-    act(() => { vi.advanceTimersByTime(2000) })
+    // give any microtasks a chance to settle
+    await waitFor(() => expect(btn).toBeInTheDocument())
     expect(window.location.href).toBe('')
   })
 
-  it('biometric button does NOT navigate — WebAuthn pending', async () => {
+  it('biometric button is present and clickable', () => {
     renderLogin()
     const btn = screen.getByRole('button', { name: /toca para entrar con tu huella/i })
     expect(btn).toBeInTheDocument()
-    fireEvent.click(btn)
-    expect(window.location.href).toBe('')
+    expect(() => fireEvent.click(btn)).not.toThrow()
   })
 
   it('"Usar otra cuenta" removes sc_returning from localStorage', () => {
@@ -182,5 +188,43 @@ describe('LoginPage — return / biometric state', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /continuar con google/i })).toBeInTheDocument()
     })
+  })
+})
+
+// ── Biometric authentication flow ─────────────────────────────────────────────
+
+describe('LoginPage — biometric authentication flow', () => {
+  beforeEach(() => {
+    localStorage.setItem('has_passkey', 'true')
+    localStorage.setItem('user_email', 'user@example.com')
+    vi.mocked(global.fetch).mockReset()
+  })
+
+  it('successful biometric auth saves the new auth_token to localStorage', async () => {
+    vi.mocked(startAuthentication).mockResolvedValueOnce({
+      id: 'cred-id', rawId: 'cred-id', response: {} as any,
+      type: 'public-key', clientExtensionResults: {},
+    })
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ challenge: 'c' }) } as Response)
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ token: 'new-jwt' }) } as Response)
+
+    renderLogin()
+    const btn = screen.getByRole('button', { name: /toca para entrar con tu huella/i })
+    fireEvent.click(btn)
+
+    await waitFor(() => expect(localStorage.getItem('auth_token')).toBe('new-jwt'))
+  })
+
+  it('"Usar otra cuenta" removes has_passkey from localStorage', () => {
+    renderLogin()
+    fireEvent.click(screen.getByRole('button', { name: /usar otra cuenta/i }))
+    expect(localStorage.getItem('has_passkey')).toBeNull()
+  })
+
+  it('"Usar otra cuenta" removes user_email from localStorage', () => {
+    renderLogin()
+    fireEvent.click(screen.getByRole('button', { name: /usar otra cuenta/i }))
+    expect(localStorage.getItem('user_email')).toBeNull()
   })
 })

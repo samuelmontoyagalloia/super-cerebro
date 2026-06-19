@@ -1,37 +1,64 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { startAuthentication } from '@simplewebauthn/browser'
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:3000'
+const BACKEND_URL = import.meta.env.VITE_TUNNEL_URL ?? import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:3000'
 
 type Phase = 'idle' | 'loading'
 
 export default function LoginPage() {
+  const navigate = useNavigate()
   const [returning, setReturning] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [phase, setPhase] = useState<Phase>('idle')
 
   useEffect(() => {
-    setReturning(localStorage.getItem('sc_returning') === 'true')
-    const mq = window.matchMedia('(max-width: 768px)')
-    setIsMobile(mq.matches)
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
+    setReturning(localStorage.getItem('has_passkey') === 'true')
+    setIsMobile(/iPhone|iPad/.test(navigator.userAgent))
   }, [])
 
   const handleGoogleLogin = () => {
     window.location.href = `${BACKEND_URL}/auth/google`
   }
 
-  const handleBiometric = () => {
+  const handleBiometric = async () => {
     if (phase === 'loading') return
     setPhase('loading')
-    // WebAuthn pendiente — resetea al estado idle después de la animación
-    setTimeout(() => setPhase('idle'), 1500)
+
+    try {
+      const email = localStorage.getItem('user_email')
+      if (!email) throw new Error('No email found')
+
+      const optRes = await fetch(`${BACKEND_URL}/auth/passkey/login/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!optRes.ok) throw new Error('login/start failed')
+      const options = await optRes.json()
+
+      const credential = await startAuthentication({ optionsJSON: options })
+
+      const finishRes = await fetch(`${BACKEND_URL}/auth/passkey/login/finish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, response: credential }),
+      })
+      if (!finishRes.ok) throw new Error('login/finish failed')
+      const { token } = await finishRes.json()
+
+      localStorage.setItem('auth_token', token)
+      navigate('/dashboard')
+    } catch {
+      setPhase('idle')
+    }
   }
 
   const handleSwitchAccount = () => {
     localStorage.removeItem('auth_token')
     localStorage.removeItem('sc_returning')
+    localStorage.removeItem('has_passkey')
+    localStorage.removeItem('user_email')
     setReturning(false)
     setPhase('idle')
   }

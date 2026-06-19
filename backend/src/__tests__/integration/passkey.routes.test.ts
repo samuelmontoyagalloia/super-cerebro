@@ -479,3 +479,43 @@ describe('POST /auth/passkey/login/finish', () => {
     expect(prisma.passkey.update).not.toHaveBeenCalled()
   })
 })
+
+// ── Dynamic rpID and origin from FRONTEND_URL ─────────────────────────────────
+
+describe('passkey — rpID and origin derived from FRONTEND_URL', () => {
+  const expectedOrigin = process.env.FRONTEND_URL ?? 'http://localhost:5173'
+  const expectedRPID   = new URL(expectedOrigin).hostname
+
+  it('calls verifyRegistrationResponse with expectedOrigin and expectedRPID from FRONTEND_URL', async () => {
+    // Populate the challenge store via /register/start
+    await supertest(app)
+      .post('/auth/passkey/register/start')
+      .set('Authorization', `Bearer ${makeJwt()}`)
+
+    await supertest(app)
+      .post('/auth/passkey/register/finish')
+      .set('Authorization', `Bearer ${makeJwt()}`)
+      .send({ id: CRED_ID, rawId: CRED_ID, response: {}, type: 'public-key', clientExtensionResults: {} })
+
+    expect(MOCK_VERIFY_REG).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedOrigin, expectedRPID })
+    )
+  })
+
+  it('calls verifyAuthenticationResponse with expectedOrigin and expectedRPID from FRONTEND_URL', async () => {
+    // Need a user with a passkey for login/start to succeed
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(MOCK_USER_WITH_PASSKEY as any)
+
+    await supertest(app)
+      .post('/auth/passkey/login/start')
+      .send({ email: USER_EMAIL })
+
+    await supertest(app)
+      .post('/auth/passkey/login/finish')
+      .send({ email: USER_EMAIL, response: { id: CRED_ID } })
+
+    expect(MOCK_VERIFY_AUTH).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedOrigin, expectedRPID })
+    )
+  })
+})

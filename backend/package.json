@@ -6,6 +6,7 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
+    "dev:tunnel": "TUNNEL_URL=https://83ckj4bl-3000.use2.devtunnels.ms FRONTEND_URL=https://83ckj4bl-5173.use2.devtunnels.ms tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

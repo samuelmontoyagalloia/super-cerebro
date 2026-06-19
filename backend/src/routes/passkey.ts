@@ -12,8 +12,14 @@ const router = Router()
 
 const IS_PROD = process.env.NODE_ENV === 'production'
 const RP_NAME = 'Super Cerebro'
-const RP_ID = IS_PROD ? 'cerebro.samuelmontoya.com' : 'localhost'
-const ORIGIN = IS_PROD ? 'https://cerebro.samuelmontoya.com' : 'http://localhost:5173'
+
+const ORIGIN = IS_PROD
+  ? 'https://cerebro.samuelmontoya.com'
+  : (process.env.FRONTEND_URL ?? 'http://localhost:5173')
+
+const RP_ID = IS_PROD
+  ? 'cerebro.samuelmontoya.com'
+  : new URL(ORIGIN).hostname
 
 // Temporary in-memory challenge store — keyed by userId
 const challengeStore = new Map<string, string>()

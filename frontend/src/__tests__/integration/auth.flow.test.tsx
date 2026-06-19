@@ -98,6 +98,7 @@ describe('Auth flow — logout retains returning-user state', () => {
   it('after logout, /login shows the biometric state (not Google button)', async () => {
     localStorage.setItem('auth_token', FAKE_TOKEN)
     localStorage.setItem('sc_returning', 'true')
+    localStorage.setItem('has_passkey', 'true')
 
     renderApp('/dashboard')
     fireEvent.click(screen.getByRole('button', { name: /cerrar sesión/i }))
@@ -115,6 +116,7 @@ describe('Auth flow — logout retains returning-user state', () => {
 describe('Auth flow — "Usar otra cuenta" full reset', () => {
   beforeEach(() => {
     localStorage.setItem('sc_returning', 'true')
+    localStorage.setItem('has_passkey', 'true')
     localStorage.setItem('auth_token', FAKE_TOKEN)
   })
 

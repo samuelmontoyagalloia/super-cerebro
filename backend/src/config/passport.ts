@@ -2,15 +2,18 @@ import passport from 'passport'
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import prisma from '../lib/prisma.js'
 
-const BACKEND_URL =
-  process.env.BACKEND_URL ?? 'https://super-cerebro-production.up.railway.app'
+const IS_PROD = process.env.NODE_ENV === 'production'
+const callbackBase =
+  !IS_PROD && process.env.TUNNEL_URL
+    ? process.env.TUNNEL_URL
+    : (process.env.BACKEND_URL ?? 'http://localhost:3000')
 
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      callbackURL: `${BACKEND_URL}/auth/google/callback`,
+      callbackURL: `${callbackBase}/auth/google/callback`,
     },
     async (_accessToken, _refreshToken, profile, done) => {
       try {

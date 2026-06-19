@@ -2,6 +2,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import CallbackPage from '../../pages/CallbackPage'
+import { startRegistration } from '@simplewebauthn/browser'
+
+vi.mock('@simplewebauthn/browser', () => ({
+  startRegistration: vi.fn().mockResolvedValue({
+    id: 'test-cred', rawId: 'test-cred', response: {}, type: 'public-key', clientExtensionResults: {},
+  }),
+}))
+
+global.fetch = vi.fn().mockImplementation((url: string) => {
+  if (String(url).includes('/register/start')) {
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({ challenge: 'c', user: { name: 'test@example.com' } }) })
+  }
+  return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true }) })
+}) as unknown as typeof fetch
 
 // Helper: render CallbackPage with a given URL search string
 function renderCallback(search = '') {
@@ -76,6 +90,43 @@ describe('CallbackPage — without token', () => {
     renderCallback('')
     await waitFor(() => expect(screen.getByText('LOGIN')).toBeInTheDocument())
     expect(localStorage.getItem('sc_returning')).toBeNull()
+  })
+})
+
+// ── Passkey registration on callback ─────────────────────────────────────────
+
+describe('CallbackPage — passkey registration on callback', () => {
+  const TOKEN = 'header.eyJ1c2VySWQiOiJ0ZXN0LWlkIn0.sig'
+
+  beforeEach(() => localStorage.clear())
+
+  it('sets has_passkey = "true" in localStorage when registration succeeds', async () => {
+    renderCallback(`?token=${TOKEN}`)
+    await waitFor(() => expect(screen.getByText('DASHBOARD')).toBeInTheDocument())
+    expect(localStorage.getItem('has_passkey')).toBe('true')
+  })
+
+  it('saves user_email from registration options to localStorage', async () => {
+    renderCallback(`?token=${TOKEN}`)
+    await waitFor(() => expect(screen.getByText('DASHBOARD')).toBeInTheDocument())
+    expect(localStorage.getItem('user_email')).toBe('test@example.com')
+  })
+
+  it('navigates to /dashboard even when startRegistration throws (non-blocking)', async () => {
+    vi.mocked(startRegistration).mockRejectedValueOnce(new Error('cancelled'))
+    renderCallback(`?token=${TOKEN}`)
+    await waitFor(() => expect(screen.getByText('DASHBOARD')).toBeInTheDocument())
+    expect(localStorage.getItem('auth_token')).toBe(TOKEN)
+  })
+
+  it('navigates to /dashboard even when /register/start fetch fails (non-blocking)', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: false,
+      json: () => Promise.resolve({}),
+    } as Response)
+    renderCallback(`?token=${TOKEN}`)
+    await waitFor(() => expect(screen.getByText('DASHBOARD')).toBeInTheDocument())
+    expect(localStorage.getItem('auth_token')).toBe(TOKEN)
   })
 })
 
