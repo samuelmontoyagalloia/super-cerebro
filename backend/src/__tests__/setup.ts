@@ -7,3 +7,5 @@ process.env.GOOGLE_CLIENT_ID = 'test-google-client-id'
 process.env.GOOGLE_CLIENT_SECRET = 'test-google-client-secret'
 process.env.JWT_SECRET = 'test-jwt-secret-must-be-at-least-32-chars!'
 process.env.BACKEND_URL = 'http://localhost:3000'
+// Don't restrict email in tests — individual tests set this themselves
+delete process.env.ALLOWED_EMAIL

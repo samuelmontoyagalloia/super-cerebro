@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, beforeAll, beforeEach } from 'vitest'
+import { vi, describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest'
 import type { Profile } from 'passport-google-oauth20'
 
 // Must mock prisma before passport config loads it
@@ -144,6 +144,60 @@ describe('Passport Google Strategy — verify callback', () => {
       await verify('access-token', 'refresh-token', mockProfile as Profile, done)
 
       expect(done).toHaveBeenCalledWith(createError)
+    })
+  })
+
+  describe('email allowlist (ALLOWED_EMAIL)', () => {
+    const ALLOWED = 'allowed@example.com'
+    const BLOCKED = 'blocked@example.com'
+
+    afterEach(() => {
+      delete process.env.ALLOWED_EMAIL
+    })
+
+    it('rejects with done(null, false) when email does not match ALLOWED_EMAIL', async () => {
+      process.env.ALLOWED_EMAIL = ALLOWED
+      const blocked = { ...mockProfile, emails: [{ value: BLOCKED, verified: true }] }
+      const done = vi.fn()
+
+      await verify('a', 'r', blocked as Profile, done)
+
+      expect(done).toHaveBeenCalledWith(null, false)
+      expect(prisma.user.findUnique).not.toHaveBeenCalled()
+      expect(prisma.user.create).not.toHaveBeenCalled()
+    })
+
+    it('allows authentication and proceeds to DB when email matches ALLOWED_EMAIL', async () => {
+      process.env.ALLOWED_EMAIL = ALLOWED
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(existingUser as any)
+      const allowed = { ...mockProfile, emails: [{ value: ALLOWED, verified: true }] }
+      const done = vi.fn()
+
+      await verify('a', 'r', allowed as Profile, done)
+
+      expect(prisma.user.findUnique).toHaveBeenCalledOnce()
+      expect(done).toHaveBeenCalledWith(null, existingUser)
+    })
+
+    it('allows any email when ALLOWED_EMAIL is not set', async () => {
+      delete process.env.ALLOWED_EMAIL
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(existingUser as any)
+      const done = vi.fn()
+
+      await verify('a', 'r', mockProfile as Profile, done)
+
+      expect(done).toHaveBeenCalledWith(null, existingUser)
+    })
+
+    it('is case-sensitive: rejects an uppercase variant of the allowed email', async () => {
+      process.env.ALLOWED_EMAIL = ALLOWED
+      const upper = { ...mockProfile, emails: [{ value: ALLOWED.toUpperCase(), verified: true }] }
+      const done = vi.fn()
+
+      await verify('a', 'r', upper as Profile, done)
+
+      expect(done).toHaveBeenCalledWith(null, false)
+      expect(prisma.user.findUnique).not.toHaveBeenCalled()
     })
   })
 })

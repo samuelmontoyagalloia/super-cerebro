@@ -20,6 +20,11 @@ passport.use(
         const email = profile.emails?.[0]?.value
         if (!email) return done(new Error('No email provided by Google'))
 
+        const allowedEmail = process.env.ALLOWED_EMAIL
+        if (allowedEmail && email !== allowedEmail) {
+          return done(null, false)
+        }
+
         let user = await prisma.user.findUnique({ where: { googleId: profile.id } })
 
         if (!user) {

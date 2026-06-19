@@ -174,15 +174,16 @@ describe('E2E — Google OAuth flow', () => {
   })
 
   describe('GET /auth/google/callback — OAuth failure', () => {
-    it('redirects to / when Google returns an error', async () => {
+    it('redirects to /login?error=unauthorized when Google returns an error', async () => {
       if (!dbAvailable) return
 
       const res = await supertest(app).get(
         '/auth/google/callback?error=access_denied'
       )
 
+      const frontendUrl = process.env.FRONTEND_URL ?? 'https://cerebro.samuelmontoya.com'
       expect(res.status).toBe(302)
-      expect(res.headers.location).toBe('/')
+      expect(res.headers.location).toBe(`${frontendUrl}/login?error=unauthorized`)
     })
   })
 })
