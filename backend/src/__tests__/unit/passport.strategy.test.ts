@@ -70,7 +70,7 @@ describe('Passport Google Strategy — verify callback', () => {
         where: { googleId: 'google-user-123' },
       })
       expect(prisma.user.create).not.toHaveBeenCalled()
-      expect(done).toHaveBeenCalledWith(null, existingUser)
+      expect(done).toHaveBeenCalledWith(null, { userId: existingUser.id })
     })
   })
 
@@ -97,7 +97,7 @@ describe('Passport Google Strategy — verify callback', () => {
           name: 'New User',
         },
       })
-      expect(done).toHaveBeenCalledWith(null, createdUser)
+      expect(done).toHaveBeenCalledWith(null, { userId: createdUser.id })
     })
   })
 
@@ -176,7 +176,7 @@ describe('Passport Google Strategy — verify callback', () => {
       await verify('a', 'r', allowed as Profile, done)
 
       expect(prisma.user.findUnique).toHaveBeenCalledOnce()
-      expect(done).toHaveBeenCalledWith(null, existingUser)
+      expect(done).toHaveBeenCalledWith(null, { userId: existingUser.id })
     })
 
     it('allows any email when ALLOWED_EMAIL is not set', async () => {
@@ -186,7 +186,7 @@ describe('Passport Google Strategy — verify callback', () => {
 
       await verify('a', 'r', mockProfile as Profile, done)
 
-      expect(done).toHaveBeenCalledWith(null, existingUser)
+      expect(done).toHaveBeenCalledWith(null, { userId: existingUser.id })
     })
 
     it('is case-sensitive: rejects an uppercase variant of the allowed email', async () => {

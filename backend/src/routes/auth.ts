@@ -18,8 +18,8 @@ router.get(
     failureRedirect: `${frontendUrl}/login?error=unauthorized`,
   }),
   (req: Request, res: Response) => {
-    const user = req.user as { id: string }
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' })
+    const { userId } = req.user!
+    const token = jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: '7d' })
     res.redirect(`${frontendUrl}/auth/callback?token=${token}`)
   }
 )
