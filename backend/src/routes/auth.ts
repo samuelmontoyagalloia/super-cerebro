@@ -15,7 +15,8 @@ router.get(
   (req: Request, res: Response) => {
     const user = req.user as { id: string }
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' })
-    res.redirect(`https://cerebro.samuelmontoya.com?token=${token}`)
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://cerebro.samuelmontoya.com'
+    res.redirect(`${frontendUrl}/auth/callback?token=${token}`)
   }
 )
 
